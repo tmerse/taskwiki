@@ -7,6 +7,7 @@ import json
 import six
 import sys
 import vim  # pylint: disable=F0401
+import yaml
 
 # Insert the taskwiki on the python path
 BASE_DIR = vim.eval("s:plugin_path")
@@ -141,21 +142,23 @@ class SelectedTasks(object):
                 # TODO/FIXME: data_location set in vim/taskwiki always should take precedence!
                 taskwarrior_data_location = taskwarrior_data_location or '~/.task'
 
+                # Subset of task that should be shown in yaml header
+                task_exported_yaml_header = {key: task_exported[key] for key in task_exported.keys()
+                    & {'description', 'status', 'tags', 'annotations'}}
+
                 task_scratch_content = """\
-                ---
-                title: {title}
-                ---
 
                 # Task | {uuid}
 
                 # Scratch
 
                 Stuff goes here
-                """.format(title=task_exported["description"], uuid=task_exported["uuid"]).split("\n")
+                """.format(uuid=vimwikitask.uuid).split("\n")
                 task_scratch_content = [l.strip() for l in task_scratch_content]
+                task_scratch_content = (["---"] + yaml.dump(task_exported_yaml_header, Dumper=util.YAML_DUMPER, default_flow_style=False, sort_keys=False).split("\n")[:-1] + ["---"] + task_scratch_content)[:-2]
 
                 scratch_folder_path = os.path.expanduser(os.path.join(taskwarrior_data_location, 'scratch'))
-                scratch_file_path = os.path.join(scratch_folder_path, task_exported["uuid"] + '.md')
+                scratch_file_path = os.path.join(scratch_folder_path, str(vimwikitask.uuid) + '.md')
 
                 os.makedirs(scratch_folder_path, exist_ok=True)
 
