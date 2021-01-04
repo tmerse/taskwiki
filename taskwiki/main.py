@@ -3,6 +3,7 @@ import base64
 import re
 import os
 import pickle
+import json
 import six
 import sys
 import vim  # pylint: disable=F0401
@@ -115,6 +116,59 @@ class SelectedTasks(object):
 
         cache().buffer.push()
         self.save_action('done')
+
+    @errors.pretty_exception_handler
+    def scratch(self):
+        for vimwikitask in self.tasks:
+            out = util.tw_execute_safely(self.tw, [vimwikitask.uuid, 'export'])
+            if out:
+                # json export of tw task
+                task_exported = json.loads(out[0])
+                # print(task_exported.keys())
+                # dict_keys(['id', 'description', 'entry', 'modified', 'start', 'status', 'tags', 'uuid', 'urgency'])
+
+                task_config = util.tw_execute_safely(self.tw, ['_show'])
+                matcher = re.compile(r"data\.location=(.*)")
+                for element in task_config:
+                    taskwarrior_data_location = re.search(matcher, element)
+                    if taskwarrior_data_location and len(taskwarrior_data_location.groups()) == 1:
+                        taskwarrior_data_location = taskwarrior_data_location.group(1)
+                        break
+                    else:
+                        taskwarrior_data_location = None
+
+                # TODO: test this code (if location is not set in config)
+                # TODO/FIXME: data_location set in vim/taskwiki always should take precedence!
+                taskwarrior_data_location = taskwarrior_data_location or '~/.task'
+
+                task_scratch_content = """\
+                ---
+                title: {title}
+                ---
+
+                # Task | {uuid}
+
+                # Scratch
+
+                Stuff goes here
+                """.format(title=task_exported["description"], uuid=task_exported["uuid"]).split("\n")
+                task_scratch_content = [l.strip() for l in task_scratch_content]
+
+                scratch_folder_path = os.path.expanduser(os.path.join(taskwarrior_data_location, 'scratch'))
+                scratch_file_path = os.path.join(scratch_folder_path, task_exported["uuid"] + '.md')
+
+                os.makedirs(scratch_folder_path, exist_ok=True)
+
+                vim.command("edit {0}".format(scratch_file_path))
+                if not os.path.isfile(scratch_file_path):
+                    vim.current.buffer.append(task_scratch_content, 0)
+                    # TODO: call taskwiki_loadbuffer and safe buffer (to show task under viewport)
+
+                # TODO: add function to update metadata in header (..and leave the rest of the buffer/everything after
+                # # Scratch untouched
+                # Make executable inside vim
+
+            break  # Show only one task
 
     @errors.pretty_exception_handler
     def info(self):
@@ -282,7 +336,9 @@ class Mappings(object):
 
         # No link detected, check for viewport or a task
         if cache().vwtask[row] is not None:
-            SelectedTasks().info()
+            # SelectedTasks().info()
+            # own code goes here
+            SelectedTasks().scratch()
             return
         else:
             port = viewport.ViewPort.from_line(row, cache())
