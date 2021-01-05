@@ -34,6 +34,7 @@ endif
 " Global update commands
 execute "command! -buffer -nargs=* TaskWikiBufferSave :"      . g:taskwiki_py . "WholeBuffer.update_to_tw()"
 execute "command! -buffer -nargs=* TaskWikiBufferLoad :"      . g:taskwiki_py . "WholeBuffer.update_from_tw()"
+execute "command! -buffer -nargs=* TaskWikiBufferUpdateHeader :". g:taskwiki_py . "WholeBuffer.update_meta_header()"
 
 augroup taskwiki
     autocmd! * <buffer>

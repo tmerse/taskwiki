@@ -65,6 +65,40 @@ class WholeBuffer(object):
         c.evaluate_viewports()
         c.buffer.push()
 
+    @staticmethod
+    @errors.pretty_exception_handler
+    @decorators.hold_vim_cursor
+    def update_meta_header():
+
+        c = cache.load_current()
+        tw = c.get_relevant_tw()
+        # TODO: use util.get_buffer_shortname ?
+        buffer_name = os.path.splitext(vim.current.buffer.name)[0]
+        task_uuid = buffer_name.split("/")[-1]
+
+        # TODO: only run if task_uuid returns a task
+        # TODO: make more robust? (should only search for uuids)
+        task_data_raw = util.tw_execute_safely(tw, [task_uuid, 'export'])
+        if task_data_raw and len(task_data_raw) and task_data_raw[0] != '':
+            task_json = json.loads(task_data_raw[0])
+            # Cached buffer content?
+            # print(cache.current_buffer._buffer_data)
+
+            current_buffer = util.get_buffer(vim.current.buffer.number)
+            # find second occurence of '---' in buffer.
+            # this marks the end of the yaml-header which will be replaced
+
+            header_end_line_number = [i for i, n in enumerate(current_buffer[:]) if n == '---'][1]
+            task_json = {key: task_json[key] for key in task_json.keys()
+                & {'description', 'status', 'tags', 'project', 'annotations'}}
+            task_yaml_header = (["---"] + yaml.dump(task_json, Dumper=util.YAML_DUMPER, default_flow_style=False, sort_keys=False).split("\n")[:-1] + ["---"])
+
+            buffer_content = current_buffer[:]
+            buffer_content = task_yaml_header + buffer_content[header_end_line_number + 1:]
+
+            current_buffer[:] = buffer_content
+            current_buffer.options['modified'] = True
+        return True
 
 class SelectedTasks(object):
 
@@ -125,7 +159,6 @@ class SelectedTasks(object):
             if out:
                 # json export of tw task
                 task_exported = json.loads(out[0])
-                # print(task_exported.keys())
                 # dict_keys(['id', 'description', 'entry', 'modified', 'start', 'status', 'tags', 'uuid', 'urgency'])
 
                 task_config = util.tw_execute_safely(self.tw, ['_show'])
@@ -144,7 +177,7 @@ class SelectedTasks(object):
 
                 # Subset of task that should be shown in yaml header
                 task_exported_yaml_header = {key: task_exported[key] for key in task_exported.keys()
-                    & {'description', 'status', 'tags', 'annotations'}}
+                    & {'description', 'status', 'tags', 'project', 'annotations'}}
 
                 task_scratch_content = """\
 
@@ -167,8 +200,8 @@ class SelectedTasks(object):
                     vim.current.buffer.append(task_scratch_content, 0)
                     # TODO: call taskwiki_loadbuffer and safe buffer (to show task under viewport)
 
-                # TODO: add function to update metadata in header (..and leave the rest of the buffer/everything after
-                # # Scratch untouched
+                # TODO: add function to update metadata in header..
+                # ..and leave the rest of the buffer/everything after "# Scratch" untouched.
                 # Make executable inside vim
 
             break  # Show only one task
@@ -696,7 +729,6 @@ class ChooseSplitTags(CallbackSplitMixin, SplitTags):
     def callback(self):
         tag = self._get_selected_tag()
         self.selected.modify(u"+{0}".format(tag))
-
 
 if __name__ == '__main__':
     Meta().integrate_tagbar()
