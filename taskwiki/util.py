@@ -6,12 +6,14 @@ import contextlib
 import os
 import random
 import sys
+import yaml
 import vim  # pylint: disable=F0401
 
 import tasklib
 
 from taskwiki.errors import TaskWikiException
 from taskwiki import regexp
+
 
 # Detect if command AnsiEsc is available
 ANSI_ESC_AVAILABLE = vim.eval('exists(":AnsiEsc")') == '2'
@@ -441,3 +443,7 @@ def is_midnight(dt):
     """
 
     return dt.hour == 0 and dt.minute == 0 and dt.second == 0
+
+class YAML_DUMPER(yaml.Dumper):
+    def increase_indent(self, flow=False, indentless=False):
+        return super(YAML_DUMPER, self).increase_indent(flow, False)
