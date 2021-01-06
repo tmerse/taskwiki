@@ -15,9 +15,14 @@ endfunction
 
 function! taskwiki#FoldInit() abort
   " Unless vimwiki is configured to use its folding, set our own
-  if &foldtext !~? 'VimwikiFold'
-    setlocal foldmethod=syntax
-    setlocal foldtext=taskwiki#FoldText()
+  if !exists('g:taskwiki_disable_tw_fold')
+    let g:taskwiki_disable_tw_fold = 0
+  endif
+  if g:taskwiki_disable_tw_fold != 1
+    if &foldtext !~? 'VimwikiFold'
+      setlocal foldmethod=syntax
+      setlocal foldtext=taskwiki#FoldText()
+    endif
   endif
 endfunction
 
